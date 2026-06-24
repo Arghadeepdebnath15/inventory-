@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { PackageSearch, AlertTriangle, IndianRupee, Receipt, TrendingUp, ChevronRight, Activity } from 'lucide-react';
+import { PackageSearch, AlertTriangle, IndianRupee, Receipt, TrendingUp, ChevronRight, Activity, Award } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [recentBills, setRecentBills] = useState([]);
   const [lowStockItems, setLowStockItems] = useState([]);
+  const [topItems, setTopItems] = useState([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -25,13 +26,14 @@ export default function Dashboard() {
       const totalProducts = products?.length || 0;
       const lowStock = products?.filter(p => p.stock_qty <= p.low_stock_threshold) || [];
       
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Strict local timezone start of day
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       
       const { data: bills } = await supabase
         .from('bills')
         .select('*')
-        .gte('created_at', today.toISOString())
+        .gte('created_at', startOfDay.toISOString())
         .order('created_at', { ascending: false });
 
       const todayRevenue = bills?.reduce((sum, bill) => sum + Number(bill.grand_total), 0) || 0;
@@ -43,6 +45,22 @@ export default function Dashboard() {
         .order('created_at', { ascending: false })
         .limit(5);
 
+      // Fetch top selling items from bill_items
+      const { data: billItems } = await supabase.from('bill_items').select('product_name, quantity, line_total');
+      const salesMap = {};
+      if (billItems) {
+        billItems.forEach(item => {
+          if (!salesMap[item.product_name]) salesMap[item.product_name] = { qty: 0, revenue: 0 };
+          salesMap[item.product_name].qty += item.quantity;
+          salesMap[item.product_name].revenue += Number(item.line_total);
+        });
+      }
+      const sortedTopItems = Object.keys(salesMap).map(name => ({
+        name,
+        qty: salesMap[name].qty,
+        revenue: salesMap[name].revenue
+      })).sort((a, b) => b.qty - a.qty).slice(0, 5);
+
       setStats({
         totalProducts,
         lowStock: lowStock.length,
@@ -51,6 +69,7 @@ export default function Dashboard() {
       });
       setLowStockItems(lowStock.slice(0, 5));
       setRecentBills(recent || []);
+      setTopItems(sortedTopItems);
       
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -73,20 +92,6 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Header Area */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-bg-card to-transparent p-6 rounded-2xl border-l-4 border-primary shadow-lg relative overflow-hidden">
-        <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl"></div>
-        <div className="z-10">
-          <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 tracking-tight">Overview</h2>
-          <p className="text-gray-400 mt-1 font-medium flex items-center gap-2">
-            <Activity className="w-4 h-4 text-primary" /> Here's what's happening in your shop today.
-          </p>
-        </div>
-        <Link to="/billing" className="z-10 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95 text-white">
-          <Receipt className="w-5 h-5" /> Quick Bill
-        </Link>
-      </div>
-
       {/* Stat Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
@@ -125,14 +130,50 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Recent Bills (Spans 2 columns) */}
-        <div className="lg:col-span-2 glass-panel rounded-2xl p-7 relative overflow-hidden group">
+        
+        {/* Top Selling Items */}
+        <div className="glass-panel rounded-2xl p-7 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl group-hover:bg-orange-500/20 transition-colors duration-700"></div>
+          
+          <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3 relative z-10">
+            <Award className="w-5 h-5 text-orange-400" />
+            Top Selling Items
+          </h3>
+          
+          <div className="relative z-10 h-full">
+            {topItems.length === 0 ? (
+              <div className="h-[200px] flex flex-col items-center justify-center bg-black/20 rounded-xl border border-white/5 text-center px-4">
+                <p className="text-gray-500 text-sm">No sales data yet.</p>
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {topItems.map((item, idx) => (
+                  <li key={idx} className="flex justify-between items-center bg-white/5 hover:bg-white/10 p-3.5 rounded-xl border border-white/5 transition-all">
+                    <div className="flex items-center gap-3">
+                      <span className="text-orange-500 font-black text-lg w-4">#{idx+1}</span>
+                      <div>
+                        <p className="font-bold text-white text-sm">{item.name}</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">{item.qty} units sold</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-green-400 text-sm">₹{item.revenue.toFixed(0)}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Bills */}
+        <div className="glass-panel rounded-2xl p-7 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors duration-700"></div>
           
           <div className="flex justify-between items-center mb-6 relative z-10">
             <h3 className="text-xl font-bold text-white flex items-center gap-3">
               <Receipt className="w-5 h-5 text-primary" />
-              Recent Transactions
+              Recent Bills
             </h3>
             <Link to="/history" className="text-sm font-semibold text-primary hover:text-white flex items-center transition-colors">
               View All <ChevronRight className="w-4 h-4 ml-1" />
@@ -147,13 +188,13 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {recentBills.map(bill => (
-                  <div key={bill.id} className="flex items-center justify-between p-4 bg-black/40 hover:bg-black/60 rounded-xl border border-white/5 transition-all hover:scale-[1.01]">
+                  <div key={bill.id} className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all hover:scale-[1.01]">
                     <div className="flex items-center gap-4">
                       <div className="bg-primary/20 p-2.5 rounded-lg text-primary">
                         <IndianRupee className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="font-bold text-white text-base">{bill.customer_name || 'Walk-in Customer'}</p>
+                        <p className="font-bold text-white text-base">{bill.customer_name || 'Walk-in'}</p>
                         <p className="text-xs text-gray-500 font-mono mt-0.5">{bill.bill_number}</p>
                       </div>
                     </div>
@@ -179,7 +220,7 @@ export default function Dashboard() {
           
           <div className="relative z-10 h-full">
             {lowStockItems.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center py-10 bg-black/20 rounded-xl border border-white/5 text-center px-4">
+              <div className="h-[200px] flex flex-col items-center justify-center bg-black/20 rounded-xl border border-white/5 text-center px-4">
                 <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center mb-3">
                   <PackageSearch className="w-6 h-6 text-green-500" />
                 </div>
@@ -189,12 +230,11 @@ export default function Dashboard() {
             ) : (
               <ul className="space-y-3">
                 {lowStockItems.map(item => (
-                  <li key={item.id} className="flex justify-between items-center bg-black/40 hover:bg-black/60 p-3.5 rounded-xl border border-white/5 transition-all">
+                  <li key={item.id} className="flex justify-between items-center bg-white/5 hover:bg-white/10 p-3.5 rounded-xl border border-white/5 transition-all">
                     <div>
                       <p className="font-bold text-white text-sm">{item.name}</p>
                       <div className="flex gap-2 mt-1">
                         <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-gray-400">{item.brand}</span>
-                        {item.size && <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">{item.size}</span>}
                       </div>
                     </div>
                     <div className="text-right">

@@ -7,10 +7,10 @@ import Inventory from './pages/Inventory';
 import Stock from './pages/Stock';
 import Billing from './pages/Billing';
 import History from './pages/History';
+import Reports from './pages/Reports';
 
-function Suppliers() { return <div>Suppliers Placeholder</div>; }
-function Reports() { return <div>Reports Placeholder</div>; }
-function Settings() { return <div>Settings Placeholder</div>; }
+function Suppliers() { return <div className="text-white p-8">Suppliers Placeholder</div>; }
+function Settings() { return <div className="text-white p-8">Settings Placeholder</div>; }
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useAuth();
