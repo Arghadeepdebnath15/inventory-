@@ -1,7 +1,9 @@
 import { supabase } from './supabase';
 
-const API_URL = import.meta.env.VITE_API_URL || 
-  (import.meta.env.PROD ? 'https://inventory-1-m6zl.onrender.com/api' : 'http://localhost:5000/api');
+let base = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://inventory-1-m6zl.onrender.com' : 'http://localhost:5000');
+if (base.endsWith('/')) base = base.slice(0, -1);
+if (!base.endsWith('/api')) base += '/api';
+const API_URL = base;
 
 export const api = {
   async fetchWithAuth(endpoint, options = {}) {
