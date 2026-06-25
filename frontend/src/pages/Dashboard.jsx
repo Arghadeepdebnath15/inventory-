@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { PackageSearch, AlertTriangle, IndianRupee, Receipt, TrendingUp, ChevronRight, Activity, Award } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -64,13 +64,12 @@ export default function Dashboard() {
       setStats({
         totalProducts,
         lowStock: lowStock.length,
-        todayRevenue,
-        billsToday
+        totalProducts: products.length,
+        lowStock: lowStockItems.length,
+        todayRevenue: revToday,
+        billsToday: billToday
       });
-      setLowStockItems(lowStock.slice(0, 5));
-      setRecentBills(recent || []);
-      setTopItems(sortedTopItems);
-      
+
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {

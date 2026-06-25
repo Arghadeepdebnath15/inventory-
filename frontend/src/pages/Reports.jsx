@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line } from 'recharts';
 import { Calendar, TrendingUp, IndianRupee, Package, ChevronDown } from 'lucide-react';
 
@@ -14,18 +14,11 @@ export default function Reports() {
 
   async function fetchBills() {
     setLoading(true);
-    let query = supabase.from('bills').select('*').order('created_at', { ascending: true });
-    
-    if (timeRange !== 'all') {
-      const date = new Date();
-      if (timeRange === '7days') date.setDate(date.getDate() - 7);
-      if (timeRange === '30days') date.setDate(date.getDate() - 30);
-      query = query.gte('created_at', date.toISOString());
-    }
-
-    const { data, error } = await query;
-    if (!error && data) {
-      setBills(data);
+    try {
+      const { data } = await api.get('/bills');
+      setBills(data || []);
+    } catch (e) {
+      console.error(e);
     }
     setLoading(false);
   }

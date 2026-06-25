@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { PackagePlus, Search, History, ArrowRight } from 'lucide-react';
 
 export default function Stock() {
@@ -22,18 +22,21 @@ export default function Stock() {
   }, []);
 
   async function fetchProducts() {
-    const { data } = await supabase.from('products').select('*').order('name');
-    setProducts(data || []);
+    try {
+      const { data } = await api.get('/products');
+      setProducts(data || []);
+    } catch(e) {
+      console.error(e);
+    }
   }
 
   async function fetchRecentLogs() {
-    // Fetch logs with joined product name (assuming we join by product_id)
-    const { data } = await supabase
-      .from('stock_log')
-      .select('*, products(name, brand)')
-      .order('created_at', { ascending: false })
-      .limit(5);
-    setRecentLogs(data || []);
+    try {
+      const { data } = await api.get('/stock-logs');
+      setRecentLogs(data || []);
+    } catch(e) {
+      console.error(e);
+    }
   }
 
   const handleStockUpdate = async (e) => {
@@ -44,16 +47,14 @@ export default function Stock() {
     try {
       const newStock = selectedProduct.stock_qty + Number(entryData.add_qty);
       
-      // Update product table
-      await supabase.from('products').update({ stock_qty: newStock }).eq('id', selectedProduct.id);
+      await api.put(`/products/${selectedProduct.id}`, { stock_qty: newStock });
       
-      // Insert log
-      await supabase.from('stock_log').insert([{
+      await api.post('/stock-logs', {
         product_id: selectedProduct.id,
         change_qty: Number(entryData.add_qty),
         reason: entryData.reason,
         note: entryData.note
-      }]);
+      });
 
       alert('Stock updated successfully!');
       

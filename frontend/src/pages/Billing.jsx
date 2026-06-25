@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import { Trash2, Plus, Minus, Search, User, Phone, Truck, Receipt, Tag, Percent } from 'lucide-react';
+import { api } from '../lib/api';
+import { Trash2, Plus, Minus, Search, User, Phone, Truck, Receipt, Tag, Percent, Settings2, ChevronDown, ChevronUp } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '../contexts/AuthContext';
 import PrintInvoice from '../components/PrintInvoice';
@@ -14,8 +14,16 @@ export default function Billing() {
   
   const [billData, setBillData] = useState({
     customer_name: '', customer_phone: '', vehicle_number: '',
-    discount_type: 'flat', discount_value: '', gst_rate: 18
+    discount_type: 'flat', discount_value: '', gst_rate: 5,
+    price_inclusive: false,
+    delivery_note: '', payment_mode: 'Cash', reference_no: '', other_references: '',
+    buyer_order_no: '', buyer_order_date: '', dispatch_doc_no: '', delivery_note_date: '',
+    dispatched_through: '', destination: '', terms_of_delivery: '',
+    shop_state: localStorage.getItem('shop_state') || 'Tripura', 
+    shop_state_code: localStorage.getItem('shop_state_code') || '16',
+    customer_state: 'Tripura', customer_state_code: '16'
   });
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -23,22 +31,27 @@ export default function Billing() {
     fetchProducts();
     fetchSettings();
     
-    const channel = supabase
-      .channel('schema-db-changes-billing')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchProducts)
-      .subscribe();
+    const channel = null; // Removed Realtime temporarily for Custom Backend compatibility
 
-    return () => supabase.removeChannel(channel);
+    return () => {};
   }, []);
 
   async function fetchSettings() {
-    const { data } = await supabase.from('settings').select('*').single();
-    if (data) setSettings(data);
+    try {
+      const { data } = await api.get('/settings');
+      if (data) setSettings(data);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async function fetchProducts() {
-    const { data } = await supabase.from('products').select('*');
-    setProducts(data || []);
+    try {
+      const { data } = await api.get('/products');
+      setProducts(data || []);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   const addItem = (product) => {
@@ -95,57 +108,46 @@ export default function Billing() {
     try {
       const bill_id = uuidv4();
       
-      const { error: billError } = await supabase.from('bills').insert([{
-        id: bill_id,
-        user_id: user.id,
-        bill_number: currentBillNumber,
-        customer_name: billData.customer_name,
-        customer_phone: billData.customer_phone,
-        vehicle_number: billData.vehicle_number,
-        subtotal,
-        discount_type: billData.discount_type,
-        discount_value: discountVal,
-        gst_rate: billData.gst_rate,
-        gst_amount: gstAmount,
-        grand_total: grandTotal
-      }]);
-      if (billError) throw billError;
-
-      for (const item of items) {
-        const line_total = item.quantity * item.unit_price;
-        
-        await supabase.from('bill_items').insert([{
-          bill_id,
-          user_id: user.id,
-          product_id: item.product_id,
-          product_name: item.product_name,
-          hsn_code: item.hsn_code,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
+      await api.post('/bills', {
+        billData: {
+          bill_number: currentBillNumber,
+          customer_name: billData.customer_name,
+          customer_phone: billData.customer_phone,
+          vehicle_number: billData.vehicle_number,
+          subtotal,
+          discount_type: billData.discount_type,
+          discount_value: discountVal,
           gst_rate: billData.gst_rate,
-          line_total
-        }]);
-
-        const { data: prod } = await supabase.from('products').select('stock_qty').eq('id', item.product_id).single();
-        const newStock = (prod?.stock_qty || 0) - item.quantity;
-        
-        await supabase.from('products').update({ stock_qty: newStock }).eq('id', item.product_id);
-        
-        await supabase.from('stock_log').insert([{
-          user_id: user.id,
-          product_id: item.product_id,
-          change_qty: -item.quantity,
-          reason: 'sale',
-          note: `Bill: ${currentBillNumber}`
-        }]);
-      }
+          gst_amount: gstAmount,
+          grand_total: grandTotal,
+          shop_state: billData.shop_state,
+          shop_state_code: billData.shop_state_code,
+          customer_state: billData.customer_state,
+          customer_state_code: billData.customer_state_code,
+          payment_mode: billData.payment_mode,
+          destination: billData.destination,
+          dispatched_through: billData.dispatched_through,
+          delivery_note: billData.delivery_note,
+          reference_no: billData.reference_no,
+          buyer_order_no: billData.buyer_order_no,
+          price_inclusive: billData.price_inclusive
+        },
+        items: items
+      });
 
       alert('Invoice created! Preparing to print...');
       
       setTimeout(() => {
         window.print();
+        localStorage.setItem('shop_state', billData.shop_state);
+        localStorage.setItem('shop_state_code', billData.shop_state_code);
         setItems([]);
-        setBillData({ customer_name: '', customer_phone: '', vehicle_number: '', discount_type: 'flat', discount_value: '', gst_rate: 18 });
+        setBillData(prev => ({ 
+          ...prev, 
+          customer_name: '', customer_phone: '', vehicle_number: '', discount_value: '', 
+          delivery_note: '', buyer_order_no: '', buyer_order_date: '', dispatch_doc_no: '', 
+          delivery_note_date: '', dispatched_through: '', destination: '', terms_of_delivery: '' 
+        }));
         setCurrentBillNumber(`INV-${Date.now().toString().slice(-6)}`);
       }, 500);
       
@@ -298,6 +300,42 @@ export default function Billing() {
                          value={billData.vehicle_number} onChange={e => setBillData({...billData, vehicle_number: e.target.value})} />
                   <Truck className="absolute left-0 top-2.5 w-5 h-5 text-gray-500 peer-focus:text-primary transition-colors" />
                 </div>
+              </div>
+
+              {/* Advanced Toggle */}
+              <div className="pt-2">
+                <button 
+                  onClick={() => setShowAdvanced(!showAdvanced)} 
+                  className="w-full flex items-center justify-between bg-[#121212] border border-gray-700 hover:border-gray-500 text-gray-400 px-4 py-2.5 rounded-xl transition-all font-medium text-sm"
+                >
+                  <span className="flex items-center gap-2"><Settings2 className="w-4 h-4"/> Advanced Invoice Details (Tally)</span>
+                  {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                
+                {showAdvanced && (
+                  <div className="mt-3 p-4 bg-[#121212] border border-gray-700 rounded-xl grid grid-cols-2 gap-3 text-xs">
+                    <div className="col-span-2 text-primary font-bold border-b border-gray-700 pb-1 mb-1">Company Defaults</div>
+                    <input placeholder="Shop State (e.g. Tripura)" className="bg-[#1a1a1a] border border-gray-700 rounded px-2 py-1.5 text-white focus:border-primary outline-none" value={billData.shop_state} onChange={e => setBillData({...billData, shop_state: e.target.value})} />
+                    <input placeholder="Shop State Code (e.g. 16)" className="bg-[#1a1a1a] border border-gray-700 rounded px-2 py-1.5 text-white focus:border-primary outline-none" value={billData.shop_state_code} onChange={e => setBillData({...billData, shop_state_code: e.target.value})} />
+                    
+                    <div className="col-span-2 text-primary font-bold border-b border-gray-700 pb-1 mt-2 mb-1">Customer / Reference Details</div>
+                    <input placeholder="Customer State" className="bg-[#1a1a1a] border border-gray-700 rounded px-2 py-1.5 text-white focus:border-primary outline-none" value={billData.customer_state} onChange={e => setBillData({...billData, customer_state: e.target.value})} />
+                    <input placeholder="Customer State Code" className="bg-[#1a1a1a] border border-gray-700 rounded px-2 py-1.5 text-white focus:border-primary outline-none" value={billData.customer_state_code} onChange={e => setBillData({...billData, customer_state_code: e.target.value})} />
+                    
+                    <input placeholder="Mode of Payment" className="bg-[#1a1a1a] border border-gray-700 rounded px-2 py-1.5 text-white focus:border-primary outline-none" value={billData.payment_mode} onChange={e => setBillData({...billData, payment_mode: e.target.value})} />
+                    <input placeholder="Destination" className="bg-[#1a1a1a] border border-gray-700 rounded px-2 py-1.5 text-white focus:border-primary outline-none" value={billData.destination} onChange={e => setBillData({...billData, destination: e.target.value})} />
+                    <input placeholder="Dispatched Through" className="bg-[#1a1a1a] border border-gray-700 rounded px-2 py-1.5 text-white focus:border-primary outline-none" value={billData.dispatched_through} onChange={e => setBillData({...billData, dispatched_through: e.target.value})} />
+                    <input placeholder="Delivery Note" className="bg-[#1a1a1a] border border-gray-700 rounded px-2 py-1.5 text-white focus:border-primary outline-none" value={billData.delivery_note} onChange={e => setBillData({...billData, delivery_note: e.target.value})} />
+                    <input placeholder="Reference No." className="bg-[#1a1a1a] border border-gray-700 rounded px-2 py-1.5 text-white focus:border-primary outline-none" value={billData.reference_no} onChange={e => setBillData({...billData, reference_no: e.target.value})} />
+                    <input placeholder="Buyer Order No." className="bg-[#1a1a1a] border border-gray-700 rounded px-2 py-1.5 text-white focus:border-primary outline-none" value={billData.buyer_order_no} onChange={e => setBillData({...billData, buyer_order_no: e.target.value})} />
+                    
+                    <div className="col-span-2 text-primary font-bold border-b border-gray-700 pb-1 mt-2 mb-1">Pricing Logic</div>
+                    <label className="col-span-2 flex items-center gap-2 text-gray-300 cursor-pointer">
+                      <input type="checkbox" className="accent-primary w-4 h-4" checked={billData.price_inclusive} onChange={e => setBillData({...billData, price_inclusive: e.target.checked})} />
+                      Prices are inclusive of Tax (GST)
+                    </label>
+                  </div>
+                )}
               </div>
             </div>
           </div>

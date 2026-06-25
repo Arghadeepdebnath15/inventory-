@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { Plus, Search, Edit, Trash2, Package, Tag, Settings } from 'lucide-react';
 
 const CATEGORIES = ['All', 'Tyres', 'Tubes', 'Alloys', 'Batteries', 'Accessories', 'Other'];
@@ -23,27 +23,27 @@ export default function Inventory() {
   useEffect(() => {
     fetchProducts();
     
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchProducts)
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
+    const channel = null; // Removed Realtime temporarily
+    return () => {};
   }, []);
 
   async function fetchProducts() {
     setLoading(true);
-    const { data, error } = await supabase.from('products').select('*').order('name');
-    if (!error) setProducts(data || []);
+    try {
+      const { data } = await api.get('/products');
+      setProducts(data || []);
+    } catch(e) {
+      console.error(e);
+    }
     setLoading(false);
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (editingId) {
-      await supabase.from('products').update(formData).eq('id', editingId);
+      await api.put(`/products/${editingId}`, { ...formData });
     } else {
-      await supabase.from('products').insert([formData]);
+      await api.post('/products', { ...formData });
     }
     setShowModal(false);
     setEditingId(null);
@@ -52,7 +52,7 @@ export default function Inventory() {
 
   const handleDelete = async (id) => {
     if (confirm('Are you sure you want to delete this product?')) {
-      await supabase.from('products').delete().eq('id', id);
+      await api.delete(`/products/${id}`);
       fetchProducts();
     }
   };

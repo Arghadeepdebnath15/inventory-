@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { History as HistoryIcon, Search, FileText, Calendar } from 'lucide-react';
 
 export default function History() {
@@ -14,21 +14,16 @@ export default function History() {
 
   async function fetchBills() {
     setLoading(true);
-    let query = supabase.from('bills').select('*').order('created_at', { ascending: false });
-
-    if (dateFilter !== 'all') {
-      const date = new Date();
-      if (dateFilter === 'today') {
-        date.setHours(0, 0, 0, 0);
-      } else if (dateFilter === '7days') {
-        date.setDate(date.getDate() - 7);
-      }
-      query = query.gte('created_at', date.toISOString());
+    try {
+      const { data } = await api.get('/bills', {
+        params: { dateFilter }
+      });
+      setBills(data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
-
-    const { data } = await query;
-    setBills(data || []);
-    setLoading(false);
   }
 
   const filteredBills = bills.filter(b => 
