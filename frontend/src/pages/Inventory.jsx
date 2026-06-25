@@ -16,8 +16,8 @@ export default function Inventory() {
   
   const [formData, setFormData] = useState({
     name: '', brand: '', size: '', type: 'Tubeless', 
-    category: 'Tyres', sku: '', purchase_price: 0, 
-    selling_price: 0, stock_qty: 0, low_stock_threshold: 5, hsn_code: ''
+    category: 'Tyres', sku: '', purchase_price: '', 
+    selling_price: '', stock_qty: '', low_stock_threshold: '5', hsn_code: ''
   });
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export default function Inventory() {
         </div>
         <button 
           onClick={() => {
-            setFormData({ name: '', brand: '', size: '', type: 'Tubeless', category: activeCategory !== 'All' ? activeCategory : 'Tyres', sku: '', purchase_price: 0, selling_price: 0, stock_qty: 0, low_stock_threshold: 5, hsn_code: '' });
+            setFormData({ name: '', brand: '', size: '', type: 'Tubeless', category: activeCategory !== 'All' ? activeCategory : 'Tyres', sku: '', purchase_price: '', selling_price: '', stock_qty: '', low_stock_threshold: '5', hsn_code: '' });
             setEditingId(null);
             setShowModal(true);
           }}
