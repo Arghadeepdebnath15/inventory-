@@ -83,11 +83,20 @@ app.post('/api/bills', withAuth, async (req, res) => {
   const userId = req.user_id;
   
   try {
-    // 1. Insert Bill
+    // 1. Insert Bill (Filtering out extra UI/Tally fields that don't exist in DB schema)
     const { error: billError } = await req.supabase.from('bills').insert([{
       id: bill_id,
       user_id: userId,
-      ...billData
+      bill_number: billData.bill_number,
+      customer_name: billData.customer_name,
+      customer_phone: billData.customer_phone,
+      vehicle_number: billData.vehicle_number,
+      subtotal: billData.subtotal,
+      discount_type: billData.discount_type,
+      discount_value: billData.discount_value,
+      gst_rate: billData.gst_rate,
+      gst_amount: billData.gst_amount,
+      grand_total: billData.grand_total
     }]);
     if (billError) throw billError;
 
