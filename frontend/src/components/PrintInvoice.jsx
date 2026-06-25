@@ -1,7 +1,7 @@
 import React from 'react';
 import { numberToWords } from '../utils/numberToWords';
 
-export default function PrintInvoice({ billData, items, subtotal, discountAmount, gstAmount, grandTotal, settings, billNumber }) {
+export default function PrintInvoice({ billData, items, subtotal, discountAmount, gstAmount, grandTotal, settings, billNumber, previewMode = false }) {
   const invoiceDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-');
   
   // Base calculations
@@ -18,7 +18,7 @@ export default function PrintInvoice({ billData, items, subtotal, discountAmount
   const roundOff = roundedTotal - exactTotal;
 
   return (
-    <div className="print-only hidden print:block w-[210mm] min-h-[297mm] bg-white text-black font-sans m-0 p-0" style={{ fontFamily: 'Arial, sans-serif' }}>
+    <div className={`${previewMode ? 'block scale-[0.8] origin-top mx-auto shadow-2xl mb-8' : 'print-only hidden print:block'} w-[210mm] min-h-[297mm] bg-white text-black font-sans m-0 p-0`} style={{ fontFamily: 'Arial, sans-serif' }}>
       
       {/* Title */}
       <div className="text-center font-bold text-lg mb-1 tracking-wider">
