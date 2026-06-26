@@ -66,10 +66,14 @@ export default function Inventory() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    const payload = { ...formData };
+    if (!payload.sku) payload.sku = null;
+    
     if (editingId) {
-      await api.put(`/products/${editingId}`, { ...formData });
+      await api.put(`/products/${editingId}`, payload);
     } else {
-      await api.post('/products', { ...formData });
+      await api.post('/products', payload);
     }
     setShowModal(false);
     setEditingId(null);
