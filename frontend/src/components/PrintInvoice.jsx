@@ -6,7 +6,9 @@ export default function PrintInvoice({ billData, items, subtotal, discountAmount
   
   // Base calculations
   const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalAmountBase = subtotal - discountAmount;
+  const totalAmountBase = billData.price_inclusive 
+    ? (subtotal - discountAmount) / (1 + (billData.gst_rate / 100))
+    : (subtotal - discountAmount);
   
   // Tally splits GST into CGST and SGST (half each)
   const halfGstRate = billData.gst_rate > 0 ? (billData.gst_rate / 2) : 0;

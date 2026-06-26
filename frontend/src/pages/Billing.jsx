@@ -97,9 +97,20 @@ export default function Billing() {
   const discountAmount = billData.discount_type === 'percent' 
     ? (subtotal * (discountVal / 100)) 
     : discountVal;
-  const afterDiscount = subtotal - discountAmount;
-  const gstAmount = afterDiscount * (billData.gst_rate / 100);
-  const grandTotal = afterDiscount + gstAmount;
+  
+  const valueAfterDiscount = subtotal - discountAmount;
+  
+  let gstAmount = 0;
+  let grandTotal = 0;
+
+  if (billData.price_inclusive) {
+    grandTotal = valueAfterDiscount;
+    const taxableValue = grandTotal / (1 + (billData.gst_rate / 100));
+    gstAmount = grandTotal - taxableValue;
+  } else {
+    gstAmount = valueAfterDiscount * (billData.gst_rate / 100);
+    grandTotal = valueAfterDiscount + gstAmount;
+  }
 
   const saveBill = async () => {
     if (items.length === 0) return alert('Please add at least one item to the bill.');
