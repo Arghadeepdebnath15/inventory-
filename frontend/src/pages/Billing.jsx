@@ -15,7 +15,7 @@ export default function Billing() {
   const [billData, setBillData] = useState({
     customer_name: '', customer_phone: '', vehicle_number: '',
     discount_type: 'flat', discount_value: '', gst_rate: 5,
-    price_inclusive: false,
+    price_inclusive: true,
     delivery_note: '', payment_mode: 'Cash', reference_no: '', other_references: '',
     buyer_order_no: '', buyer_order_date: '', dispatch_doc_no: '', delivery_note_date: '',
     dispatched_through: '', destination: '', terms_of_delivery: '',
@@ -396,7 +396,9 @@ export default function Billing() {
               <div className="flex justify-between items-end mb-6">
                 <div>
                   <span className="block text-gray-400 text-sm font-bold uppercase tracking-widest mb-1">Grand Total</span>
-                  <span className="text-xs text-primary font-bold">INCLUSIVE OF ALL TAXES</span>
+                  <span className="text-xs text-primary font-bold">
+                    {billData.price_inclusive ? 'INCLUSIVE OF ALL TAXES' : 'PLUS TAXES'}
+                  </span>
                 </div>
                 <span className="text-4xl font-black text-white">₹{grandTotal.toFixed(2)}</span>
               </div>
