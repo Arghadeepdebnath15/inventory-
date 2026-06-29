@@ -13,6 +13,7 @@ export default function Inventory() {
   
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -66,18 +67,26 @@ export default function Inventory() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
     
     const payload = { ...formData };
     if (!payload.sku) payload.sku = null;
     
-    if (editingId) {
-      await api.put(`/products/${editingId}`, payload);
-    } else {
-      await api.post('/products', payload);
+    try {
+      if (editingId) {
+        await api.put(`/products/${editingId}`, payload);
+      } else {
+        await api.post('/products', payload);
+      }
+      setShowModal(false);
+      setEditingId(null);
+      await fetchProducts();
+    } catch (err) {
+      console.error(err);
+      alert('Error saving product');
+    } finally {
+      setSubmitting(false);
     }
-    setShowModal(false);
-    setEditingId(null);
-    fetchProducts();
   };
 
   const handleDelete = async (id) => {
@@ -476,9 +485,9 @@ export default function Inventory() {
                         className="px-6 py-2.5 text-gray-400 hover:text-white font-medium transition-colors">
                   Cancel
                 </button>
-                <button type="submit" 
-                        className="bg-[#ff6b00] hover:bg-[#e56000] text-white px-8 py-2.5 rounded-lg font-bold shadow-[0_0_15px_rgba(255,107,0,0.3)] transition-all">
-                  {editingId ? 'Save Changes' : 'Add to Inventory'}
+                <button type="submit" disabled={submitting}
+                        className="bg-[#ff6b00] hover:bg-[#e56000] text-white px-8 py-2.5 rounded-lg font-bold shadow-[0_0_15px_rgba(255,107,0,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                  {submitting ? 'Saving...' : (editingId ? 'Save Changes' : 'Add to Inventory')}
                 </button>
               </div>
             </form>
